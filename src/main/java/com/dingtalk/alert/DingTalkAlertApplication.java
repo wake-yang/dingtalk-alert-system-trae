@@ -23,4 +23,5 @@ public class DingTalkAlertApplication {
         System.out.println("访问地址: http://localhost:8080");
         System.out.println("==================================");
     }
+
 }
