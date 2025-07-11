@@ -1,8 +1,10 @@
 package com.dingtalk.alert.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dingtalk.alert.dto.DashboardRecordDTO;
+import com.dingtalk.alert.dto.ExecuteRecordListDTO;
 import com.dingtalk.alert.entity.ExecuteRecord;
 import com.dingtalk.alert.service.ExecuteRecordService;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * 执行记录控制器
@@ -164,24 +167,68 @@ public class ExecuteRecordController {
     public Map<String, Object> list(@RequestParam(defaultValue = "1") long current,
                                    @RequestParam(defaultValue = "20") long size,
                                    @RequestParam(required = false) Long taskId,
-                                   @RequestParam(required = false) String executionId, // 新增执行ID筛选
+                                   @RequestParam(required = false) String executionId,
                                    @RequestParam(required = false) String status,
                                    @RequestParam(required = false) String startTime,
                                    @RequestParam(required = false) String endTime) {
         Map<String, Object> result = new HashMap<>();
         try {
             Page<ExecuteRecord> page = new Page<>(current, size);
-            IPage<ExecuteRecord> pageResult = executeRecordService.getRecordsByPage(
-                page, taskId, executionId, status, startTime, endTime); // 传递executionId参数
+            QueryWrapper<ExecuteRecord> wrapper = new QueryWrapper<>();
+            
+            if (taskId != null) {
+                wrapper.eq("task_id", taskId);
+            }
+            if (executionId != null && !executionId.isEmpty()) {
+                wrapper.like("execution_id", executionId);
+            }
+            if (status != null && !status.isEmpty()) {
+                wrapper.eq("status", status);
+            }
+            if (startTime != null && !startTime.isEmpty()) {
+                wrapper.ge("start_time", startTime);
+            }
+            if (endTime != null && !endTime.isEmpty()) {
+                wrapper.le("end_time", endTime);
+            }
+            
+            wrapper.orderByDesc("create_time");
+            IPage<ExecuteRecord> pageResult = executeRecordService.page(page, wrapper);
+            
+            // 转换为DTO对象
+            List<ExecuteRecordListDTO> dtoList = pageResult.getRecords().stream()
+                .map(this::convertToListDTO)
+                .collect(Collectors.toList());
+            
+            // 构建分页结果
+            IPage<ExecuteRecordListDTO> dtoPageResult = new Page<>(current, size, pageResult.getTotal());
+            dtoPageResult.setRecords(dtoList);
             
             result.put("success", true);
-            result.put("data", pageResult);
+            result.put("data", dtoPageResult);
         } catch (Exception e) {
-            log.error("获取执行记录列表失败", e);
+            log.error("查询执行记录失败", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
         return result;
+    }
+
+    private ExecuteRecordListDTO convertToListDTO(ExecuteRecord record) {
+        ExecuteRecordListDTO dto = new ExecuteRecordListDTO();
+        dto.setId(record.getId());
+        dto.setExecutionId(record.getExecutionId());
+        dto.setQueryTaskId(record.getQueryTaskId());
+        dto.setTaskName(record.getTaskName());
+        dto.setExecuteStatus(record.getExecuteStatus());
+        dto.setResultCount(record.getResultCount());
+        dto.setPushStatus(record.getPushStatus());
+        dto.setExecuteDuration(record.getExecuteDuration());
+        dto.setStartTime(record.getStartTime());
+        dto.setEndTime(record.getEndTime());
+        dto.setIsAlert(record.getIsAlert());
+        dto.setCreateTime(record.getCreateTime());
+        return dto;
     }
 
     /**

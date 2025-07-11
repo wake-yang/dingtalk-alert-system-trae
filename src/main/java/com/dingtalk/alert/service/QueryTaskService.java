@@ -173,7 +173,7 @@ public class QueryTaskService extends ServiceImpl<QueryTaskMapper, QueryTask> {
         } finally {
             // 设置执行记录
             record.setEndTime(LocalDateTime.now());
-            record.setExecuteStatus(success ? "SUCCESS" : "FAILED");
+            record.setExecuteStatus(success ? "SUCCESS" : "FAILURE");
             record.setErrorMessage(errorMessage);
             record.setLogs(logs.toString());
             record.setExecuteDuration(sqlExecuteDuration);  // 修改这里，使用正确的方法名

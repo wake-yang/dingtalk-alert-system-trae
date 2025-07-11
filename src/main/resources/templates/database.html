@@ -236,7 +236,12 @@
                         
                         <div class="mb-3">
                             <label for="password" class="form-label">密码 <span class="text-danger">*</span></label>
-                            <input type="password" class="form-control" id="password" required>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="password" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('password')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -320,7 +325,8 @@
                 });
         }
 
-        // 显示数据库列表
+        
+        // 保留第324行的正确实现
         function displayDatabases() {
             const tbody = document.getElementById('databaseTableBody');
             
@@ -331,27 +337,10 @@
 
             let html = '';
             filteredDatabases.forEach(db => {
-                // 解析JDBC URL
-                let host = '-', port = '-', database = '-';
-                if (db.jdbcUrl) {
-                    try {
-                        // 移除jdbc:前缀并解析URL
-                        const cleanUrl = db.jdbcUrl.replace(/^jdbc:/, '');
-                        const url = new URL(cleanUrl);
-                        host = url.hostname || '-';
-                        port = url.port || (db.driverClassName && db.driverClassName.includes('mysql') ? '3306' : '-');
-                        database = url.pathname ? url.pathname.substring(1) : '-';
-                    } catch (e) {
-                        console.warn('无法解析JDBC URL:', db.jdbcUrl);
-                        // 尝试正则表达式解析
-                        const match = db.jdbcUrl.match(/jdbc:[^:]+:\/\/([^:\/]+)(?::(\d+))?(?:\/([^?]+))?/);
-                        if (match) {
-                            host = match[1] || '-';
-                            port = match[2] || (db.driverClassName && db.driverClassName.includes('mysql') ? '3306' : '-');
-                            database = match[3] || '-';
-                        }
-                    }
-                }
+                // 直接使用后端返回的解析好的字段
+                const host = db.host || '-';
+                const port = db.port || '-';
+                const database = db.databaseName || '-';
                 
                 // 确定数据库类型
                 let dbType = 'UNKNOWN';
@@ -433,33 +422,123 @@
 
         // 编辑数据库
         function editDatabase(id) {
-            const database = allDatabases.find(db => db.id === id);
-            if (!database) {
-                showError('未找到数据库配置');
-                return;
-            }
+            axios.get(`/api/database/${id}`)
+                .then(response => {
+                    if (response.data.success) {
+                        const database = response.data.data;
+                        console.log('后端返回的数据库配置:', database);
+                        
+                        document.getElementById('databaseModalLabel').textContent = '编辑数据库配置';
+                        document.getElementById('databaseId').value = database.id;
+                        document.getElementById('databaseName').value = database.configName || '';
+                        document.getElementById('databaseType').value = getDbTypeFromDriver(database.driverClassName);
+                        
+                        // 从 jdbcUrl 解析主机、端口、数据库名
+                        const parsedInfo = parseJdbcUrl(database.jdbcUrl);
+                        console.log('解析的JDBC信息:', parsedInfo);
+                        
+                        document.getElementById('host').value = parsedInfo.host || '';
+                        document.getElementById('port').value = parsedInfo.port || '';
+                        document.getElementById('databaseSchema').value = parsedInfo.database || '';
+                        document.getElementById('username').value = database.username || '';
+                        document.getElementById('password').value = database.password || '';
+                        document.getElementById('description').value = database.remark || '';
+                        document.getElementById('isEnabled').checked = database.enabled;
 
-            document.getElementById('databaseModalLabel').textContent = '编辑数据库配置';
-            document.getElementById('databaseId').value = database.id;
-            document.getElementById('databaseName').value = database.configName;
-            // 从jdbcUrl解析数据库类型、主机、端口、数据库名
-            if (database.jdbcUrl) {
-                try {
-                    const url = new URL(database.jdbcUrl.replace('jdbc:', ''));
-                    document.getElementById('databaseType').value = database.driverClassName && database.driverClassName.includes('mysql') ? 'mysql' : 'other';
-                    document.getElementById('host').value = url.hostname;
-                    document.getElementById('port').value = url.port || '3306';
-                    document.getElementById('databaseSchema').value = url.pathname.substring(1);
-                } catch (e) {
-                    console.warn('无法解析JDBC URL:', database.jdbcUrl);
+                        // 重置密码输入框为密码模式
+                        setInputType('password', 'password');
+
+                        new bootstrap.Modal(document.getElementById('databaseModal')).show();
+                    } else {
+                        showError('获取数据库配置失败: ' + response.data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('获取数据库配置失败:', error);
+                    showError('获取数据库配置失败');
+                });
+        }
+        
+        // 添加JDBC URL解析函数
+        function parseJdbcUrl(jdbcUrl) {
+            if (!jdbcUrl) return { host: '', port: '', database: '' };
+            
+            try {
+                // 移除 jdbc: 前缀
+                let url = jdbcUrl.replace(/^jdbc:/, '');
+                
+                // 处理不同数据库类型
+                if (url.startsWith('mysql://')) {
+                    url = url.replace('mysql://', '');
+                    const parts = url.split('/');
+                    const hostPort = parts[0];
+                    const database = parts[1] ? parts[1].split('?')[0] : '';
+                    
+                    const [host, port] = hostPort.split(':');
+                    return {
+                        host: host || '',
+                        port: port || '3306',
+                        database: database || ''
+                    };
+                } else if (url.startsWith('postgresql://')) {
+                    url = url.replace('postgresql://', '');
+                    const parts = url.split('/');
+                    const hostPort = parts[0];
+                    const database = parts[1] ? parts[1].split('?')[0] : '';
+                    
+                    const [host, port] = hostPort.split(':');
+                    return {
+                        host: host || '',
+                        port: port || '5432',
+                        database: database || ''
+                    };
+                }
+                // 可以继续添加其他数据库类型的解析逻辑
+                
+                return { host: '', port: '', database: '' };
+            } catch (error) {
+                console.error('解析JDBC URL失败:', error);
+                return { host: '', port: '', database: '' };
+            }
+        }
+
+        function togglePasswordVisibility(fieldId) {
+            const input = document.getElementById(fieldId);
+            const icon = event.currentTarget.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
+        }
+
+        function setInputType(fieldId, type) {
+            const input = document.getElementById(fieldId);
+            const button = input.nextElementSibling;
+            if (button) {
+                const icon = button.querySelector('i');
+                input.type = type;
+                if (type === 'password') {
+                    icon.classList.remove('bi-eye-slash');
+                    icon.classList.add('bi-eye');
+                } else {
+                    icon.classList.remove('bi-eye');
+                    icon.classList.add('bi-eye-slash');
                 }
             }
-            document.getElementById('username').value = database.username;
-            document.getElementById('password').value = database.password || '';
-            document.getElementById('description').value = database.remark || '';
-            document.getElementById('isEnabled').checked = database.enabled;
+        }
 
-            new bootstrap.Modal(document.getElementById('databaseModal')).show();
+        function getDbTypeFromDriver(driverClassName) {
+            if (!driverClassName) return 'other';
+            if (driverClassName.includes('mysql')) return 'mysql';
+            if (driverClassName.includes('postgresql')) return 'postgresql';
+            if (driverClassName.includes('oracle')) return 'oracle';
+            if (driverClassName.includes('sqlserver')) return 'sqlserver';
+            return 'other';
         }
 
         // 保存数据库配置
@@ -728,112 +807,6 @@
             loadDatabases(1);
         }
 
-        // 修改loadDatabases函数以支持筛选参数
-        function loadDatabases(page = 1) {
-            const searchTerm = document.getElementById('searchInput').value;
-            const typeFilter = document.getElementById('typeFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
-
-            const params = new URLSearchParams({
-                current: page,
-                size: pageSize
-            });
-
-            if (searchTerm) params.append('configName', searchTerm);
-            if (typeFilter) params.append('type', typeFilter);
-            if (statusFilter) params.append('enabled', statusFilter);
-
-            axios.get(`/api/database/list?${params.toString()}`)
-                .then(response => {
-                    if (response.data.success) {
-                        allDatabases = response.data.data.records;
-                        displayDatabases();
-                        window.paginationInstance.renderPagination(
-                            response.data.data.current, 
-                            response.data.data.pages, 
-                            response.data.data.total
-                        );
-                    } else {
-                        showError('加载数据库配置失败: ' + response.data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('加载数据库配置失败:', error);
-                    showError('加载数据库配置失败');
-                });
-        }
-
-        // 修改displayDatabases函数以正确解析JDBC URL
-        function displayDatabases() {
-            const tbody = document.getElementById('databaseTableBody');
-            tbody.innerHTML = '';
-
-            if (!allDatabases || allDatabases.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">暂无数据</td></tr>';
-                return;
-            }
-
-            allDatabases.forEach(db => {
-                let host = '-', port = '-', database = '-', dbType = '未知';
-                
-                // 改进的JDBC URL解析
-                if (db.jdbcUrl) {
-                    try {
-                        // 移除jdbc:前缀并解析
-                        const cleanUrl = db.jdbcUrl.replace(/^jdbc:/, '');
-                        
-                        // 使用正则表达式解析JDBC URL
-                        const jdbcPattern = /^(\w+):\/\/([^:\/]+):(\d+)\/(.+)$/;
-                        const match = cleanUrl.match(jdbcPattern);
-                        
-                        if (match) {
-                            dbType = match[1].toUpperCase();
-                            host = match[2];
-                            port = match[3];
-                            database = match[4].split('?')[0]; // 移除查询参数
-                        } else {
-                            // 备用解析方案
-                            if (db.driverClassName) {
-                                if (db.driverClassName.includes('mysql')) dbType = 'MySQL';
-                                else if (db.driverClassName.includes('postgresql')) dbType = 'PostgreSQL';
-                                else if (db.driverClassName.includes('oracle')) dbType = 'Oracle';
-                                else if (db.driverClassName.includes('sqlserver')) dbType = 'SQL Server';
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('无法解析JDBC URL:', db.jdbcUrl, e);
-                    }
-                }
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${db.id}</td>
-                    <td>${db.configName}</td>
-                    <td>${dbType}</td>
-                    <td>${host}</td>
-                    <td>${port}</td>
-                    <td>${database}</td>
-                    <td><span class="${db.enabled ? 'status-active' : 'status-inactive'}">
-                        ${db.enabled ? '启用' : '禁用'}
-                    </span></td>
-                    <td>${formatDateTime(db.createTime)}</td>
-                    <td>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-primary" onclick="editDatabase(${db.id})">
-                                <i class="bi bi-pencil"></i> 编辑
-                            </button>
-                            <button type="button" class="btn btn-outline-success" onclick="testDatabaseConnection(${db.id})">
-                                <i class="bi bi-check-circle"></i> 测试
-                            </button>
-                            <button type="button" class="btn btn-outline-danger" onclick="deleteDatabase(${db.id})">
-                                <i class="bi bi-trash"></i> 删除
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
     </script>
     
     <script src="/js/pagination.js"></script>

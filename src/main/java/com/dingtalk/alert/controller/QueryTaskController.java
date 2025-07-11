@@ -9,6 +9,7 @@ import com.dingtalk.alert.service.AlertTemplateService;
 import com.dingtalk.alert.service.DatabaseConfigService;
 import com.dingtalk.alert.service.QueryTaskService;
 import com.dingtalk.alert.service.SchedulerService;
+import com.dingtalk.alert.dto.QueryTaskListDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.CronExpression;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 查询任务控制器
@@ -89,29 +91,53 @@ public class QueryTaskController {
             Page<QueryTask> page = new Page<>(current, size);
             IPage<QueryTask> pageResult = queryTaskService.page(page);
             
-            // 添加任务状态信息和数据库配置名称
-            pageResult.getRecords().forEach(task -> {
-                String status = schedulerService.getTaskStatus(task.getId());
-                task.setStatus(status);
-                
-                // 获取数据库配置名称
-                if (task.getDatabaseConfigId() != null) {
-                    DatabaseConfig dbConfig = databaseConfigService.getById(task.getDatabaseConfigId());
-                    if (dbConfig != null) {
-                        // 添加一个临时字段存储数据库配置名称
-                        task.setDatabaseConfigName(dbConfig.getConfigName());
-                    }
-                }
-            });
+            // 转换为DTO对象
+            List<QueryTaskListDTO> dtoList = pageResult.getRecords().stream()
+                .map(this::convertToListDTO)
+                .collect(Collectors.toList());
+            
+            // 构建分页结果
+            IPage<QueryTaskListDTO> dtoPageResult = new Page<>(current, size, pageResult.getTotal());
+            dtoPageResult.setRecords(dtoList);
             
             result.put("success", true);
-            result.put("data", pageResult);
+            result.put("data", dtoPageResult);
         } catch (Exception e) {
             log.error("查询查询任务失败", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
         return result;
+    }
+
+    private QueryTaskListDTO convertToListDTO(QueryTask task) {
+        QueryTaskListDTO dto = new QueryTaskListDTO();
+        dto.setId(task.getId());
+        dto.setTaskName(task.getTaskName());
+        dto.setCronExpression(task.getCronExpression());
+        dto.setEnabled(task.getEnabled());
+        dto.setLastExecuteTime(task.getLastExecuteTime());
+        dto.setNextExecuteTime(task.getNextExecuteTime());
+        dto.setExecuteCount(task.getExecuteCount());
+        dto.setSuccessCount(task.getSuccessCount());
+        dto.setFailureCount(task.getFailureCount());
+        dto.setRemark(task.getRemark());
+        dto.setCreateTime(task.getCreateTime());
+        dto.setUpdateTime(task.getUpdateTime());
+        
+        // 添加任务状态信息
+        String status = schedulerService.getTaskStatus(task.getId());
+        dto.setStatus(status);
+        
+        // 获取数据库配置名称
+        if (task.getDatabaseConfigId() != null) {
+            DatabaseConfig dbConfig = databaseConfigService.getById(task.getDatabaseConfigId());
+            if (dbConfig != null) {
+                dto.setDatabaseConfigName(dbConfig.getConfigName());
+            }
+        }
+        
+        return dto;
     }
 
     /**

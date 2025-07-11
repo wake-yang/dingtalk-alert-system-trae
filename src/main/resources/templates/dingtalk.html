@@ -487,24 +487,6 @@
             });
         }
 
-        // 加载配置列表
-        function loadConfigs(page = 1) {
-            currentPage = page;
-            fetch(`/api/dingtalk/list?current=${page}&size=${pageSize}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        renderConfigTable(data.data.records);
-                        renderPagination(data.data.current, data.data.pages, data.data.total);
-                    } else {
-                        alert('加载数据失败：' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('加载数据失败');
-                });
-        }
 
         // 渲染配置表格
         function renderConfigTable(configs) {
@@ -540,34 +522,7 @@
             });
         }
 
-        // 渲染分页
-        function renderPagination(current, pages, total) {
-            const pagination = document.getElementById('pagination');
-            pagination.innerHTML = '';
-            totalPages = pages;
 
-            if (pages <= 1) return;
-
-            // 上一页
-            const prevLi = document.createElement('li');
-            prevLi.className = `page-item ${current <= 1 ? 'disabled' : ''}`;
-            prevLi.innerHTML = `<a class="page-link" href="#" onclick="loadConfigs(${current - 1})">上一页</a>`;
-            pagination.appendChild(prevLi);
-
-            // 页码
-            for (let i = Math.max(1, current - 2); i <= Math.min(pages, current + 2); i++) {
-                const li = document.createElement('li');
-                li.className = `page-item ${i === current ? 'active' : ''}`;
-                li.innerHTML = `<a class="page-link" href="#" onclick="loadConfigs(${i})">${i}</a>`;
-                pagination.appendChild(li);
-            }
-
-            // 下一页
-            const nextLi = document.createElement('li');
-            nextLi.className = `page-item ${current >= pages ? 'disabled' : ''}`;
-            nextLi.innerHTML = `<a class="page-link" href="#" onclick="loadConfigs(${current + 1})">下一页</a>`;
-            pagination.appendChild(nextLi);
-        }
 
         // 格式化日期时间
         function formatDateTime(dateTime) {

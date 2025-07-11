@@ -1,6 +1,7 @@
 package com.dingtalk.alert.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dingtalk.alert.entity.DingTalkConfig;
 import com.dingtalk.alert.service.DingTalkService;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.dingtalk.alert.dto.DingTalkConfigListDTO;
+import java.util.stream.Collectors;
 
 /**
  * 钉钉配置控制器
@@ -472,8 +476,18 @@ public class DingTalkController {
         Map<String, Object> result = new HashMap<>();
         try {
             IPage<DingTalkConfig> pageResult = dingTalkService.getConfigList(current, size);
+            
+            // 转换为DTO对象
+            List<DingTalkConfigListDTO> dtoList = pageResult.getRecords().stream()
+                .map(this::convertToListDTO)
+                .collect(Collectors.toList());
+            
+            // 构建分页结果
+            IPage<DingTalkConfigListDTO> dtoPageResult = new Page<>(current, size, pageResult.getTotal());
+            dtoPageResult.setRecords(dtoList);
+            
             result.put("success", true);
-            result.put("data", pageResult);
+            result.put("data", dtoPageResult);
         } catch (Exception e) {
             log.error("获取钉钉配置列表失败", e);
             result.put("success", false);
@@ -490,15 +504,35 @@ public class DingTalkController {
         Map<String, Object> result = new HashMap<>();
         try {
             List<DingTalkConfig> configs = dingTalkService.getAllConfigs();
+            
+            // 转换为DTO对象
+            List<DingTalkConfigListDTO> dtoList = configs.stream()
+                .map(this::convertToListDTO)
+                .collect(Collectors.toList());
+            
             result.put("success", true);
-            result.put("data", configs);
-            log.info("获取钉钉配置列表成功，共{}条记录", configs.size());
+            result.put("data", dtoList);
+            log.info("获取钉钉配置列表成功，共{}条记录", dtoList.size());
         } catch (Exception e) {
             log.error("获取钉钉配置列表失败", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
         return result;
+    }
+
+    private DingTalkConfigListDTO convertToListDTO(DingTalkConfig config) {
+        DingTalkConfigListDTO dto = new DingTalkConfigListDTO();
+        dto.setId(config.getId());
+        dto.setName(config.getName());
+        dto.setWebhookUrlMasked(config.getWebhookUrl()); // 使用脱敏方法
+        dto.setDescription(config.getDescription());
+        dto.setEnabled(config.getEnabled());
+        dto.setCreateBy(config.getCreateBy());
+        dto.setUpdateBy(config.getUpdateBy());
+        dto.setCreateTime(config.getCreateTime());
+        dto.setUpdateTime(config.getUpdateTime());
+        return dto;
     }
 
     /**

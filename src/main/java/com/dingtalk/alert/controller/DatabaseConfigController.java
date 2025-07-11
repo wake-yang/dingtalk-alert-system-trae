@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dingtalk.alert.entity.DatabaseConfig;
 import com.dingtalk.alert.service.DatabaseConfigService;
 import com.dingtalk.alert.service.DatabaseService;
+import com.dingtalk.alert.dto.DatabaseConfigListDTO;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -75,14 +77,40 @@ public class DatabaseConfigController {
             Page<DatabaseConfig> page = new Page<>(current, size);
             IPage<DatabaseConfig> pageResult = databaseConfigService.page(page);
             
+            // 转换为DTO对象
+            List<DatabaseConfigListDTO> dtoList = pageResult.getRecords().stream()
+                .map(this::convertToListDTO)
+                .collect(Collectors.toList());
+            
+            // 构建分页结果
+            IPage<DatabaseConfigListDTO> dtoPageResult = new Page<>(current, size, pageResult.getTotal());
+            dtoPageResult.setRecords(dtoList);
+            
             result.put("success", true);
-            result.put("data", pageResult);
+            result.put("data", dtoPageResult);
         } catch (Exception e) {
             log.error("查询数据库配置失败", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
         return result;
+    }
+
+    private DatabaseConfigListDTO convertToListDTO(DatabaseConfig config) {
+        DatabaseConfigListDTO dto = new DatabaseConfigListDTO();
+        dto.setId(config.getId());
+        dto.setConfigName(config.getConfigName());
+        
+        // 解析JDBC URL获取主机、端口、数据库名称，同时设置脱敏URL
+        dto.parseJdbcUrl(config.getJdbcUrl());
+        
+        dto.setUsername(config.getUsername());
+        dto.setDriverClassName(config.getDriverClassName());
+        dto.setEnabled(config.getEnabled());
+        dto.setRemark(config.getRemark());
+        dto.setCreateTime(config.getCreateTime());
+        dto.setUpdateTime(config.getUpdateTime());
+        return dto;
     }
 
     /**

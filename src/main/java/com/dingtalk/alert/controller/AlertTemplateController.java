@@ -3,6 +3,7 @@ package com.dingtalk.alert.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dingtalk.alert.dto.AlertTemplateListDTO;
 import com.dingtalk.alert.entity.AlertTemplate;
 import com.dingtalk.alert.service.AlertTemplateService;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 告警模板控制器
@@ -47,7 +49,7 @@ public class AlertTemplateController {
             QueryWrapper<AlertTemplate> wrapper = new QueryWrapper<>();
             wrapper.eq("deleted", false)
                    .eq("is_custom", false); // 过滤掉自定义模板
-
+    
             if (templateName != null && !templateName.isEmpty()) {
                 wrapper.like("template_name", templateName);
             }
@@ -57,18 +59,41 @@ public class AlertTemplateController {
             if (status != null) {
                 wrapper.eq("enabled", status == 1);
             }
-
+    
             wrapper.orderByDesc("create_time");
             IPage<AlertTemplate> pageResult = alertTemplateService.page(page, wrapper);
             
+            // 转换为DTO对象
+            List<AlertTemplateListDTO> dtoList = pageResult.getRecords().stream()
+                .map(this::convertToListDTO)
+                .collect(Collectors.toList());
+            
+            // 构建分页结果
+            IPage<AlertTemplateListDTO> dtoPageResult = new Page<>(current, size, pageResult.getTotal());
+            dtoPageResult.setRecords(dtoList);
+            
             result.put("success", true);
-            result.put("data", pageResult);
+            result.put("data", dtoPageResult);
         } catch (Exception e) {
             log.error("查询告警模板失败", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
         return result;
+    }
+
+    private AlertTemplateListDTO convertToListDTO(AlertTemplate template) {
+        AlertTemplateListDTO dto = new AlertTemplateListDTO();
+        dto.setId(template.getId());
+        dto.setTemplateName(template.getTemplateName());
+        dto.setTemplateType(template.getTemplateType());
+        dto.setEnabled(template.getEnabled());
+        dto.setIsCustom(template.getIsCustom());
+        dto.setTaskId(template.getTaskId());
+        dto.setRemark(template.getRemark());
+        dto.setCreateTime(template.getCreateTime());
+        dto.setUpdateTime(template.getUpdateTime());
+        return dto;
     }
 
     /**
