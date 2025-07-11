@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dingtalk.alert.mapper.ExecuteRecordMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="ExecuteRecordResultMap" type="com.dingtalk.alert.entity.ExecuteRecord">
+        <id column="id" property="id"/>
+        <result column="task_id" property="queryTaskId"/>
+        <result column="task_name" property="taskName"/>
+        <result column="status" property="executeStatus"/>
+        <result column="result_count" property="resultCount"/>
+        <result column="result_content" property="resultContent"/>
+        <result column="push_status" property="pushStatus"/>
+        <result column="push_response" property="pushResponse"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="execute_duration" property="executeDuration"/>
+        <result column="error_message" property="errorMessage"/>
+        <result column="sql_query" property="sqlQuery"/>
+        <result column="logs" property="logs"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 分页查询执行记录 -->
+    <select id="selectRecordPage" resultMap="ExecuteRecordResultMap">
+        SELECT * FROM execute_record WHERE 1=1
+        <if test="queryTaskId != null">
+            AND task_id = #{queryTaskId}
+        </if>
+        <if test="executeStatus != null and executeStatus != ''">
+            AND status = #{executeStatus}
+        </if>
+        <if test="startTime != null">
+            AND start_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND  #{endTime} >= end_time
+        </if>
+        <if test="executionId != null">
+            AND execution_id = #{executionId}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查询最近的执行记录（仅首页必要字段） -->
+    <select id="selectRecentRecordsForDashboard" resultType="com.dingtalk.alert.dto.DashboardRecordDTO">
+        SELECT 
+            task_id as queryTaskId,
+            task_name as taskName,
+            status as executeStatus,
+            create_time as createTime
+        FROM execute_record 
+        ORDER BY create_time DESC 
+        LIMIT #{limit}
+    </select>
+
+    <!-- 统计执行记录 -->
+    <select id="countRecords" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM execute_record WHERE 1=1
+        <if test="queryTaskId != null">
+            AND task_id = #{queryTaskId}
+        </if>
+        <if test="executeStatus != null and executeStatus != ''">
+            AND status = #{executeStatus}
+        </if>
+        <if test="startTime != null">
+            AND start_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND #{endTime} >= end_time
+        </if>
+    </select>
+
+    <!-- 获取所有不同的任务ID -->
+    <select id="selectDistinctTaskIds" resultType="java.lang.Long">
+        SELECT DISTINCT task_id FROM execute_record 
+        WHERE task_id IS NOT NULL 
+        ORDER BY task_id
+    </select>
+
+    <select id="selectDailyStatistics" resultType="java.util.Map">
+        SELECT 
+            DATE(create_time) as date,
+            SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successCount,
+            SUM(CASE WHEN status = 'FAILURE' THEN 1 ELSE 0 END) as failureCount,
+            COUNT(*) as totalCount
+        FROM execute_record 
+        WHERE create_time >= #{startTime} AND #{endTime}  >= create_time
+        GROUP BY DATE(create_time)
+        ORDER BY DATE(create_time)
+    </select>
+</mapper>

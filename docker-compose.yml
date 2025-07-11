@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # MySQL数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: dingtalk-alert-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: dingtalk_alert
+      MYSQL_USER: alert_user
+      MYSQL_PASSWORD: alert_password
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./src/main/resources/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-time-zone='+08:00'
+      --lower-case-table-names=1
+    networks:
+      - dingtalk-alert-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # 钉钉告警应用服务
+  dingtalk-alert-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dingtalk-alert-app
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/dingtalk_alert?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: alert_user
+      SPRING_DATASOURCE_PASSWORD: alert_password
+      TZ: Asia/Shanghai
+    ports:
+      - "8080:8080"
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - dingtalk-alert-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis服务（可选，用于缓存）
+  redis:
+    image: redis:7-alpine
+    container_name: dingtalk-alert-redis
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - dingtalk-alert-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  dingtalk-alert-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' - 钉钉告警系统'">告警模板 - 钉钉告警系统</title>
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        .nav-link {
+            color: #495057;
+        }
+        .nav-link:hover {
+            color: #007bff;
+        }
+        .nav-link.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .content {
+            padding: 20px;
+        }
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .btn-group-sm > .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            border-top: none;
+        }
+        .status-active {
+            color: #198754;
+        }
+        .status-inactive {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 侧边栏 -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <h5 class="px-3 mb-3 text-muted">钉钉告警系统</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/">
+                                <i class="bi bi-house-door"></i>
+                                首页
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/database">
+                                <i class="bi bi-server"></i>
+                                数据库配置
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/template">
+                                <i class="bi bi-file-text"></i>
+                                告警模板
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/task">
+                                <i class="bi bi-clock"></i>
+                                查询任务
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/record">
+                                <i class="bi bi-list-ul"></i>
+                                执行记录
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/dingtalk">
+                                <i class="bi bi-chat-dots"></i>
+                                钉钉配置
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- 主内容区域 -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">告警模板管理</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#templateModal">
+                            <i class="bi bi-plus-circle"></i>
+                            新增模板
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 筛选栏 -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索模板名称...">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="statusFilter">
+                            <option value="">全部状态</option>
+                            <option value="1">启用</option>
+                            <option value="0">禁用</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="templateTypeFilter">
+                            <option value="">全部类型</option>
+                            <option value="text">文本消息</option>
+                            <option value="markdown">Markdown消息</option>
+                            <option value="link">链接消息</option>
+                            <option value="actionCard">独立跳转ActionCard</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary" type="button" onclick="filterTemplates()">
+                            <i class="bi bi-search"></i> 搜索
+                        </button>
+                        <button class="btn btn-outline-secondary ms-2" type="button" onclick="resetFilters()">
+                            <i class="bi bi-arrow-clockwise"></i> 重置
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 模板列表 -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>模板名称</th>
+                                        <th>模板类型</th>
+                                        <th>状态</th>
+                                        <th>创建时间</th>
+                                        <th>更新时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="templateTableBody">
+                                    <!-- 数据将通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 分页 -->
+                        <nav aria-label="分页导航">
+                            <ul class="pagination justify-content-center" id="pagination">
+                                <!-- 分页按钮将通过JavaScript动态生成 -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 模板编辑模态框 -->
+    <div class="modal fade" id="templateModal" tabindex="-1" aria-labelledby="templateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="templateModalLabel">新增告警模板</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="templateForm">
+                        <input type="hidden" id="templateId">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="templateName" class="form-label">模板名称 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="templateName" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="templateType" class="form-label">模板类型 <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="templateType" required>
+                                        <option value="">请选择模板类型</option>
+                                        <option value="text">文本消息</option>
+                                        <option value="markdown">Markdown消息</option>
+                                        <option value="link">链接消息</option>
+                                        <option value="actionCard">独立跳转ActionCard</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="templateContent" class="form-label">模板内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="templateContent" rows="8" required placeholder="请输入模板内容，支持变量替换，如：${变量名}"></textarea>
+                            <div class="form-text">
+                                支持变量替换，如：${变量名}<br>
+                                <strong>系统变量：</strong>${notify_time}、${execute_duration}、${execute_result}、${task_name}、${total_rows}、${current_time}、${execution_id}、${task_id}<br>
+                                <strong>数据变量：</strong>根据SQL查询结果的字段名
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="templateStatus" class="form-label">状态</label>
+                                    <select class="form-select" id="templateStatus">
+                                        <option value="1">启用</option>
+                                        <option value="0">禁用</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="templateDescription" class="form-label">描述</label>
+                                    <input type="text" class="form-control" id="templateDescription" placeholder="模板描述">
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveTemplate()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/pagination.js"></script>
+    <script>
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化分页组件
+            window.paginationInstance = new PaginationComponent({
+                pageSize: 20,
+                paginationElementId: 'pagination',
+                loadDataCallback: loadTemplates
+            });
+            
+            loadTemplates(1);
+        });
+
+        // 加载模板列表
+        function loadTemplates(page = 1) {
+            const templateName = document.getElementById('searchInput').value;
+            const status = document.getElementById('statusFilter').value;
+            const templateType = document.getElementById('templateTypeFilter').value;
+
+            const params = new URLSearchParams({
+                current: page,
+                size: 20 // 统一设置为20
+            });
+
+            if (templateName) params.append('templateName', templateName);
+            if (status) params.append('status', status);
+            if (templateType) params.append('templateType', templateType);
+
+            fetch(`/api/template/list?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderTemplateTable(data.data.records);
+                        window.paginationInstance.renderPagination(data.data.current, data.data.pages, data.data.total);
+                    } else {
+                        console.error('加载模板失败:', data.message);
+                        document.getElementById('templateTableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger">加载失败: ${data.message}</td></tr>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('请求失败:', error);
+                    document.getElementById('templateTableBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger">请求失败，请检查网络或服务状态</td></tr>';
+                });
+        }
+
+        // 统一筛选函数
+        function filterTemplates() {
+            loadTemplates(1); // 筛选时总是从第一页开始
+        }
+
+        // 重置筛选条件
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('templateTypeFilter').value = '';
+            loadTemplates(1);
+        }
+
+        // 删除原有的searchTemplates和filterByStatus函数
+        // function searchTemplates() { ... }
+        // function filterByStatus() { ... }
+
+        // 渲染模板表格
+        function renderTemplateTable(templates) {
+            const tbody = document.getElementById('templateTableBody');
+            tbody.innerHTML = '';
+
+            templates.forEach(template => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${template.id}</td>
+                    <td>${template.templateName}</td>
+                    <td>${getTemplateTypeText(template.templateType)}</td>
+                    <td><span class="${template.enabled ? 'status-active' : 'status-inactive'}">
+                        ${template.enabled ? '启用' : '禁用'}
+                    </span></td>
+                    <td>${formatDateTime(template.createTime)}</td>
+                    <td>${formatDateTime(template.updateTime)}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-primary" onclick="editTemplate(${template.id})">
+                                <i class="bi bi-pencil"></i> 编辑
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" onclick="deleteTemplate(${template.id})">
+                                <i class="bi bi-trash"></i> 删除
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 渲染分页 - 修复只有一页时也显示完整分页信息
+        function renderPagination(current, total, totalRecords) {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+            totalPages = total;
+
+            if (totalRecords === 0) {
+                pagination.innerHTML = `<li class="page-item disabled"><span class="page-link">共 0 条记录</span></li>`;
+                return;
+            }
+
+            let html = `<li class="page-item disabled"><span class="page-link">共 ${totalRecords} 条记录</span></li>`;
+
+            // 移除这个条件判断，即使只有一页也要显示完整的分页信息
+            // if (total <= 1) {
+            //     pagination.innerHTML = html;
+            //     return;
+            // }
+
+            html = `<li class="page-item disabled"><span class="page-link">第 ${current}/${total} 页</span></li>` + html;
+
+            const createPageLink = (page, text) => {
+                return `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault(); loadTemplates(${page});">${text}</a></li>`;
+            };
+
+            const disabledLink = (text) => {
+                return `<li class="page-item disabled"><span class="page-link">${text}</span></li>`;
+            };
+
+            const activeLink = (text) => {
+                return `<li class="page-item active"><span class="page-link">${text}</span></li>`;
+            };
+
+            let pageLinks = '';
+            if (current > 1) {
+                pageLinks += createPageLink(current - 1, '上一页');
+            } else {
+                pageLinks += disabledLink('上一页');
+            }
+
+            const startPage = Math.max(1, current - 2);
+            const endPage = Math.min(total, current + 2);
+
+            if (startPage > 1) {
+                pageLinks += createPageLink(1, '1');
+                if (startPage > 2) pageLinks += disabledLink('...');
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === current) {
+                    pageLinks += activeLink(i);
+                } else {
+                    pageLinks += createPageLink(i, i);
+                }
+            }
+
+            if (endPage < total) {
+                if (endPage < total - 1) pageLinks += disabledLink('...');
+                pageLinks += createPageLink(total, total);
+            }
+
+            if (current < total) {
+                pageLinks += createPageLink(current + 1, '下一页');
+            } else {
+                pageLinks += disabledLink('下一页');
+            }
+
+            pagination.innerHTML = pageLinks + html;
+        }
+
+        // 获取模板类型文本
+        function getTemplateTypeText(type) {
+            const typeMap = {
+                'text': '文本消息',
+                'markdown': 'Markdown消息',
+                'link': '链接消息',
+                'actionCard': '独立跳转ActionCard'
+            };
+            return typeMap[type] || type;
+        }
+
+        // 格式化日期时间
+        function formatDateTime(dateTime) {
+            if (!dateTime) return '-';
+            return new Date(dateTime).toLocaleString('zh-CN');
+        }
+
+        // 搜索模板
+        function searchTemplates() {
+            const keyword = document.getElementById('searchInput').value;
+            // 这里可以添加搜索逻辑
+            loadTemplates(1);
+        }
+
+        // 按状态筛选
+        function filterByStatus() {
+            const status = document.getElementById('statusFilter').value;
+            // 这里可以添加筛选逻辑
+            loadTemplates(1);
+        }
+
+        // 编辑模板
+        function editTemplate(id) {
+            fetch(`/api/template/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const template = data.data;
+                        document.getElementById('templateId').value = template.id;
+                        document.getElementById('templateName').value = template.templateName;
+                        document.getElementById('templateType').value = template.templateType;
+                        document.getElementById('templateContent').value = template.templateContent;
+                        document.getElementById('templateStatus').value = template.enabled ? 1 : 0;
+                        document.getElementById('templateDescription').value = template.remark || '';
+                        document.getElementById('templateModalLabel').textContent = '编辑告警模板';
+                        
+                        const modal = new bootstrap.Modal(document.getElementById('templateModal'));
+                        modal.show();
+                    } else {
+                        alert('获取模板信息失败：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('获取模板信息失败');
+                });
+        }
+
+        // 删除模板
+        function deleteTemplate(id) {
+            if (confirm('确定要删除这个模板吗？')) {
+                fetch(`/api/template/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('删除成功');
+                        // 使用分页组件的当前页
+                        loadTemplates(window.paginationInstance.currentPage || 1);
+                    } else {
+                        alert('删除失败：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('删除失败');
+                });
+            }
+        }
+
+        // 保存模板
+        function saveTemplate() {
+            const form = document.getElementById('templateForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const templateData = {
+                id: document.getElementById('templateId').value,
+                templateName: document.getElementById('templateName').value,
+                templateType: document.getElementById('templateType').value,
+                templateContent: document.getElementById('templateContent').value,
+                enabled: parseInt(document.getElementById('templateStatus').value) === 1,
+                remark: document.getElementById('templateDescription').value
+            };
+
+            const url = templateData.id ? `/api/template/${templateData.id}` : '/api/template';
+            const method = templateData.id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(templateData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('保存成功');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('templateModal'));
+                    modal.hide();
+                    // 使用分页组件的当前页
+                    loadTemplates(window.paginationInstance.currentPage || 1);
+                    resetForm();
+                } else {
+                    alert('保存失败：' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('保存失败');
+            });
+        }
+
+        // 重置表单
+        function resetForm() {
+            document.getElementById('templateForm').reset();
+            document.getElementById('templateId').value = '';
+            document.getElementById('templateModalLabel').textContent = '新增告警模板';
+        }
+
+        // 模态框关闭时重置表单
+        document.getElementById('templateModal').addEventListener('hidden.bs.modal', function () {
+            resetForm();
+        });
+    </script>
+</body>
+</html>

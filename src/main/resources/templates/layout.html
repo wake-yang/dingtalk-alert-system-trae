@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' - 钉钉告警系统'">钉钉告警系统</title>
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        .nav-link {
+            color: #495057;
+        }
+        .nav-link:hover {
+            color: #007bff;
+        }
+        .nav-link.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .content {
+            padding: 20px;
+        }
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .btn-group-sm > .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            border-top: none;
+        }
+        .status-success {
+            color: #198754;
+        }
+        .status-error {
+            color: #dc3545;
+        }
+        .status-running {
+            color: #fd7e14;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 侧边栏 -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <h5 class="px-3 mb-3 text-muted">钉钉告警系统</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/">
+                                <i class="bi bi-house-door"></i>
+                                首页
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/database">
+                                <i class="bi bi-server"></i>
+                                数据库配置
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/template">
+                                <i class="bi bi-file-text"></i>
+                                告警模板
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/task">
+                                <i class="bi bi-clock"></i>
+                                查询任务
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/record">
+                                <i class="bi bi-list-ul"></i>
+                                执行记录
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/dingtalk">
+                                <i class="bi bi-chat-dots"></i>
+                                钉钉配置
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- 主内容区域 -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2" th:text="${title}">页面标题</h1>
+                </div>
+                
+                <div class="content" th:fragment="content">
+                    <!-- 页面内容将在这里插入 -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/axios.min.js"></script>
+    <script>
+        // 设置当前页面的导航链接为激活状态
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            navLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // 通用的AJAX请求函数
+        function apiRequest(method, url, data = null) {
+            return axios({
+                method: method,
+                url: url,
+                data: data,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+        }
+
+        // 显示成功消息
+        function showSuccess(message) {
+            showAlert('success', message);
+        }
+
+        // 显示错误消息
+        function showError(message) {
+            showAlert('danger', message);
+        }
+
+        // 显示警告消息
+        function showWarning(message) {
+            showAlert('warning', message);
+        }
+
+        // 显示信息消息
+        function showInfo(message) {
+            showAlert('info', message);
+        }
+
+        // 通用的警告框显示函数
+        function showAlert(type, message) {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            const alertContainer = document.getElementById('alert-container') || createAlertContainer();
+            alertContainer.innerHTML = alertHtml;
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                const alert = alertContainer.querySelector('.alert');
+                if (alert) {
+                    alert.remove();
+                }
+            }, 3000);
+        }
+
+        // 创建警告框容器
+        function createAlertContainer() {
+            const container = document.createElement('div');
+            container.id = 'alert-container';
+            container.style.position = 'fixed';
+            container.style.top = '20px';
+            container.style.right = '20px';
+            container.style.zIndex = '9999';
+            container.style.width = '300px';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        // 确认对话框
+        function confirmAction(message, callback) {
+            if (confirm(message)) {
+                callback();
+            }
+        }
+
+        // 格式化日期时间
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr) return '-';
+            const date = new Date(dateTimeStr);
+            return date.toLocaleString('zh-CN');
+        }
+
+        // 格式化状态
+        function formatStatus(status) {
+            const statusMap = {
+                'SUCCESS': '<span class="badge bg-success">成功</span>',
+                'FAILURE': '<span class="badge bg-danger">失败</span>',
+                'RUNNING': '<span class="badge bg-warning">运行中</span>',
+                'ENABLED': '<span class="badge bg-success">启用</span>',
+                'DISABLED': '<span class="badge bg-secondary">禁用</span>'
+            };
+            return statusMap[status] || status;
+        }
+    </script>
+</body>
+</html>
