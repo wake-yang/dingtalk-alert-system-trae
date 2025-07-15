@@ -153,49 +153,6 @@ public class SchedulerService {
         }
     }
 
-    /**
-     * 恢复任务
-     * 
-     * @param taskId 任务ID
-     */
-    public void resumeTask(Long taskId) {
-        try {
-            String jobName = "QueryTask_" + taskId;
-            String groupName = "QueryTaskGroup";
-            
-            JobKey jobKey = JobKey.jobKey(jobName, groupName);
-            if (scheduler.checkExists(jobKey)) {
-                scheduler.resumeJob(jobKey);
-                log.info("恢复任务成功: {}", taskId);
-            }
-            
-        } catch (Exception e) {
-            log.error("恢复任务失败: {}", taskId, e);
-        }
-    }
-
-    /**
-     * 立即执行任务
-     * 
-     * @param taskId 任务ID
-     */
-    public void triggerTask(Long taskId) {
-        try {
-            String jobName = "QueryTask_" + taskId;
-            String groupName = "QueryTaskGroup";
-            
-            JobKey jobKey = JobKey.jobKey(jobName, groupName);
-            if (scheduler.checkExists(jobKey)) {
-                scheduler.triggerJob(jobKey);
-                log.info("立即执行任务成功: {}", taskId);
-            } else {
-                log.warn("任务不存在，无法立即执行: {}", taskId);
-            }
-            
-        } catch (Exception e) {
-            log.error("立即执行任务失败: {}", taskId, e);
-        }
-    }
 
     /**
      * 移除任务

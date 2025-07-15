@@ -43,52 +43,6 @@ public class ExecuteRecordService extends ServiceImpl<ExecuteRecordMapper, Execu
 
 
     /**
-     * 分页查询执行记录（重载方法）
-     * 
-     * @param page 分页对象
-     * @param queryTaskId 查询任务ID
-     * @param executeStatus 执行状态
-     * @param startTime 开始时间
-     * @param endTime 结束时间
-     * @return 执行记录分页
-     */
-    public IPage<ExecuteRecord> getRecordsByPage(Page<ExecuteRecord> page, Long queryTaskId, 
-                                            String executionId, String executeStatus,
-                                            String startTime, String endTime) {
-        QueryWrapper<ExecuteRecord> wrapper = new QueryWrapper<>();
-
-        if (queryTaskId != null) {
-            wrapper.eq("task_id", queryTaskId);
-        }
-        if (executionId != null && !executionId.trim().isEmpty()) {
-            wrapper.eq("execution_id", executionId);
-        }
-        if (executeStatus != null && !executeStatus.trim().isEmpty()) {
-            wrapper.eq("status", executeStatus);
-        }
-        if (startTime != null && !startTime.trim().isEmpty()) {
-            try {
-                LocalDateTime start = LocalDateTime.parse(startTime.replace(" ", "T"));
-                wrapper.ge("create_time", start);
-            } catch (Exception e) {
-                log.warn("时间格式解析失败: {}", startTime);
-            }
-        }
-        if (endTime != null && !endTime.trim().isEmpty()) {
-            try {
-                LocalDateTime end = LocalDateTime.parse(endTime.replace(" ", "T"));
-                wrapper.le("create_time", end);
-            } catch (Exception e) {
-                log.warn("时间格式解析失败: {}", endTime);
-            }
-        }
-
-        wrapper.orderByDesc("create_time");
-
-        return page(page, wrapper);
-    }
-
-    /**
      * 查询最近的执行记录
      * 
      * @param queryTaskId 查询任务ID

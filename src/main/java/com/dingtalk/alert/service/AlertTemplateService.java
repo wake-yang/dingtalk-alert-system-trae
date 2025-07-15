@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -95,32 +94,6 @@ public class AlertTemplateService extends ServiceImpl<AlertTemplateMapper, Alert
         return list(wrapper);
     }
 
-    /**
-     * 获取所有公共模板（非自定义模板）
-     * 
-     * @return 告警模板列表
-     */
-    public List<AlertTemplate> getPublicTemplates() {
-        QueryWrapper<AlertTemplate> wrapper = new QueryWrapper<>();
-        wrapper.eq("deleted", false)
-               .eq("is_custom", false)
-               .orderByDesc("create_time");
-        return list(wrapper);
-    }
-
-    /**
-     * 根据任务ID获取自定义模板
-     * 
-     * @param taskId 任务ID
-     * @return 自定义模板
-     */
-    public AlertTemplate getCustomTemplateByTaskId(Long taskId) {
-        QueryWrapper<AlertTemplate> wrapper = new QueryWrapper<>();
-        wrapper.eq("task_id", taskId)
-               .eq("is_custom", true)
-               .eq("deleted", false);
-        return getOne(wrapper);
-    }
 
     /**
      * 根据模板名称查询
@@ -148,136 +121,6 @@ public class AlertTemplateService extends ServiceImpl<AlertTemplateMapper, Alert
         return getByTemplateName(templateName) != null;
     }
 
-    /**
-     * 验证模板内容格式
-     * 
-     * @param template 告警模板
-     * @return 验证结果
-     */
-    public String validateTemplate(AlertTemplate template) {
-        try {
-            // 验证必填字段
-            if (!StringUtils.hasText(template.getTemplateName())) {
-                return "模板名称不能为空";
-            }
-            if (!StringUtils.hasText(template.getTemplateContent())) {
-                return "模板内容不能为空";
-            }
-            if (!StringUtils.hasText(template.getTemplateType())) {
-                return "模板类型不能为空";
-            }
-
-            // 验证模板类型
-            if (!"text".equals(template.getTemplateType()) && 
-                !"markdown".equals(template.getTemplateType()) && 
-                !"template".equals(template.getTemplateType())) {
-                return "模板类型必须是 text、markdown 或 template";
-            }
-
-            // 验证模板字段格式（如果有）
-            if (StringUtils.hasText(template.getTemplateFields())) {
-                try {
-                    objectMapper.readValue(template.getTemplateFields(), new TypeReference<List<String>>(){});
-                } catch (Exception e) {
-                    return "模板字段格式错误，必须是有效的JSON数组";
-                }
-            }
-
-            // 验证模板内容中的变量
-            String content = template.getTemplateContent();
-            if ("template".equals(template.getTemplateType()) && StringUtils.hasText(template.getTemplateFields())) {
-                List<String> fields = objectMapper.readValue(template.getTemplateFields(), new TypeReference<List<String>>(){});
-                for (String field : fields) {
-                    if (!content.contains("${" + field + "}")) {
-                        log.warn("模板内容中缺少字段变量: ${{}}", field);
-                    }
-                }
-            }
-
-            return "验证通过";
-        } catch (Exception e) {
-            log.error("验证模板失败", e);
-            return "验证失败: " + e.getMessage();
-        }
-    }
-
-    /**
-     * 复制模板
-     * 
-     * @param sourceId 源模板ID
-     * @param newTemplateName 新模板名称
-     * @return 复制结果
-     */
-    @Transactional
-    public AlertTemplate copyTemplate(Long sourceId, String newTemplateName) {
-        AlertTemplate source = getById(sourceId);
-        if (source == null) {
-            throw new RuntimeException("源模板不存在");
-        }
-        
-        if (existsByTemplateName(newTemplateName)) {
-            throw new RuntimeException("新模板名称已存在: " + newTemplateName);
-        }
-
-        AlertTemplate newTemplate = new AlertTemplate();
-        newTemplate.setTemplateName(newTemplateName);
-        newTemplate.setTemplateContent(source.getTemplateContent());
-        newTemplate.setTemplateFields(source.getTemplateFields());
-        newTemplate.setTemplateType(source.getTemplateType());
-        newTemplate.setEnabled(true);
-        newTemplate.setIsCustom(false);
-        newTemplate.setRemark("复制自: " + source.getTemplateName());
-        
-        if (save(newTemplate)) {
-            return newTemplate;
-        }
-        throw new RuntimeException("复制模板失败");
-    }
-
-    /**
-     * 批量启用/禁用模板
-     * 
-     * @param ids 模板ID列表
-     * @param enabled 启用状态
-     * @return 更新结果
-     */
-    @Transactional
-    public boolean batchUpdateEnabled(List<Long> ids, boolean enabled) {
-        if (ids == null || ids.isEmpty()) {
-            return false;
-        }
-        
-        QueryWrapper<AlertTemplate> wrapper = new QueryWrapper<>();
-        wrapper.in("id", ids)
-               .eq("deleted", false);
-        
-        AlertTemplate updateTemplate = new AlertTemplate();
-        updateTemplate.setEnabled(enabled);
-        updateTemplate.setUpdateTime(LocalDateTime.now());
-        
-        return update(updateTemplate, wrapper);
-    }
-
-    /**
-     * 获取模板使用统计
-     * 
-     * @param templateId 模板ID
-     * @return 使用统计信息
-     */
-    public Map<String, Object> getTemplateUsageStats(Long templateId) {
-        Map<String, Object> stats = new HashMap<>();
-        
-        // 这里可以添加统计逻辑，比如:
-        // - 使用该模板的任务数量
-        // - 最近使用时间
-        // - 发送消息次数等
-        
-        stats.put("templateId", templateId);
-        stats.put("taskCount", 0); // 需要关联查询task表
-        stats.put("lastUsedTime", null);
-        
-        return stats;
-    }
 
     /**
      * 删除告警模板（逻辑删除）
@@ -301,19 +144,7 @@ public class AlertTemplateService extends ServiceImpl<AlertTemplateMapper, Alert
         return removeById(id);
     }
 
-    /**
-     * 物理删除自定义模板
-     * 
-     * @param taskId 任务ID
-     * @return 删除结果
-     */
-    @Transactional
-    public boolean deleteCustomTemplateByTaskId(Long taskId) {
-        QueryWrapper<AlertTemplate> wrapper = new QueryWrapper<>();
-        wrapper.eq("task_id", taskId)
-               .eq("is_custom", true);
-        return remove(wrapper);
-    }
+
 
     /**
      * 测试模板消息发送
